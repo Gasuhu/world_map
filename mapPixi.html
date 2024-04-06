@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pixi.js Geo Map with Zoom</title>
+  <script src="https://pixijs.download/release/pixi.min.js"></script> <!-- Update Pixi.js CDN URL -->
+</head>
+<body>
+  <div id="mapContainer"></div>
+
+  <script>
+    // Create Pixi Application
+    const app = new PIXI.Application({
+      width: 800,
+      height: 600,
+      antialias: true,
+      transparent: true
+    });
+
+    // Append Pixi Application to HTML
+    document.body.appendChild(app.canvas); // Changed to document.body
+
+    // Load GeoJSON data
+    fetch('custom-sm.geo.json')
+      .then(response => response.json())
+      .then(geoData => {
+        // Set up container for map features
+        const mapContainer = new PIXI.Container();
+        app.stage.addChild(mapContainer);
+
+        // Set up Graphics object for drawing map features
+        const graphics = new PIXI.Graphics();
+        mapContainer.addChild(graphics);
+
+        // Set up zoom behavior
+        const scaleFactor = 1.1;
+        let scale = 1;
+
+        window.addEventListener('wheel', function(event) { // Changed to window
+          event.preventDefault();
+          const delta = Math.sign(event.deltaY);
+          scale *= delta > 0 ? scaleFactor : 1 / scaleFactor;
+          mapContainer.scale.set(scale);
+          drawMap(); // Call drawMap on zoom
+        });
+
+        // Draw map
+        const drawMap = () => {
+          graphics.clear();
+          graphics.lineStyle(0.5 / scale, 0x000000, 1); // Adjust stroke width based on zoom level
+          graphics.beginFill(0xADD8E6, 1); // Fill color
+          geoData.features.forEach(feature => {
+            const coordinates = feature.geometry.coordinates;
+            graphics.moveTo(coordinates[0][0], coordinates[0][1]);
+            coordinates.forEach(coord => {
+              graphics.lineTo(coord[0], coord[1]);
+            });
+            graphics.closePath();
+          });
+          graphics.endFill();
+        };
+
+        drawMap();
+      })
+      .catch(error => console.error('Error loading GeoJSON data:', error));
+  </script>
+</body>
+</html>

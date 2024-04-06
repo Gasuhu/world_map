@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>D3 Geo Map on Canvas with Zoom</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+  <canvas id="mapCanvas" width="800" height="600"></canvas>
+
+  <script>
+    // Get the canvas element
+    const canvas = document.getElementById('mapCanvas');
+    const context = canvas.getContext('2d');
+
+    // Set up D3 projection and path generator
+    const projection = d3.geoMercator()
+      .scale(100)
+      .translate([canvas.width / 2, canvas.height / 2]);
+
+    const path = d3.geoPath()
+      .projection(projection)
+      .context(context);
+
+    // Set up zoom behavior
+    const zoom = d3.zoom()
+      .scaleExtent([1, 8])
+      .on('zoom', zoomed);
+
+    // Apply zoom behavior to the canvas
+    d3.select(canvas)
+      .call(zoom);
+
+    function zoomed(event) {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Update projection with zoom transform
+      const { transform } = event;
+      context.save();
+      context.translate(transform.x, transform.y);
+      context.scale(transform.k, transform.k);
+
+      // Adjust stroke width based on zoom level
+
+    }
+
+    // Load GeoJSON data
+    d3.json('custom-xl.geo.json').then(function(geoData) {
+      // Store the GeoJSON data
+      window.geoData = geoData;
+
+      // Draw initial map
+      context.beginPath();
+      path(geoData);
+      context.fillStyle = 'lightblue';
+      context.fill();
+      context.strokeStyle = 'white';
+      context.stroke();
+    });
+  </script>
+</body>
+</html>

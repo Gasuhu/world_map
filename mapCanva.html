@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>D3 Geo Map on Canvas with Zoom</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+  <canvas id="mapCanvas" width="800" height="600"></canvas>
+
+  <script>
+    // Get the canvas element
+    const canvas = document.getElementById('mapCanvas');
+    const context = canvas.getContext('2d');
+
+    // Set up D3 projection and path generator
+    const projection = d3.geoMercator()
+      .scale(100)
+      .translate([canvas.width / 2, canvas.height / 2]);
+
+    const path = d3.geoPath()
+      .projection(projection)
+      .context(context);
+
+    // Set up zoom behavior
+    const zoom = d3.zoom()
+      .scaleExtent([1, 80])
+      .on('zoom', zoomed);
+
+    // Apply zoom behavior to the canvas
+    d3.select(canvas)
+      .call(zoom);
+      let timeoutID = null;
+
+    function zoomed(event) {
+      // Get the current zoom level
+      const currentZoom = event.transform.k;
+
+      // Redraw the map only if the zoom level is within a certain range
+        context.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Update projection with zoom transform
+        const { transform } = event;
+        context.save();
+        context.translate(transform.x, transform.y);
+        context.scale(transform.k, transform.k);
+
+        // Draw map based on the updated projection
+        context.beginPath();
+        let {lat,lon}=printBoundingBox(transform);
+        let actuelPath=new Object({
+              "type": "FeatureCollection",
+              "features": []
+          })
+          if(transform.k<90){
+        actuelPath.features=window.geoData.features.filter(feature=>{
+          return (feature.rangeLon[0] < lon[1] && feature.rangeLon[1]>lon[0] && (feature.rangeLat[0]<lat[1] && feature.rangeLat[1]>lat[0]))
+        })
+      }
+      else {if(transform.k<50){
+        actuelPath.features=window.geoDataMedium.features.filter(feature=>{
+          return (feature.rangeLon[0] < lon[1] && feature.rangeLon[1]>lon[0] && (feature.rangeLat[0]<lat[1] && feature.rangeLat[1]>lat[0]))
+        })
+      }
+      else {
+        actuelPath.features=window.geoDataLarge.features.filter(feature=>{
+          return (feature.rangeLon[0] < lon[1] && feature.rangeLon[1]>lon[0] && (feature.rangeLat[0]<lat[1] && feature.rangeLat[1]>lat[0]))
+        })
+      }
+    }
+        path(actuelPath);
+        context.fillStyle = 'lightblue';
+        context.fill();
+        context.strokeStyle = 'black';
+        context.lineWidth = 1 / transform.k; // Set stroke width
+
+        context.stroke();
+
+        context.restore();
+
+
+        function delayedAction() {
+          context.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Update projection with zoom transform
+      const { transform } = event;
+      context.save();
+      context.translate(transform.x, transform.y);
+      context.scale(transform.k, transform.k);
+
+      // Draw map based on the updated projection
+      let {lat,lon}=printBoundingBox(transform);
+        let actuelPath=new Object({
+              "type": "FeatureCollection",
+              "features": []
+          })
+          actuelPath.features=window.geoDataLarge.features.filter(feature=>{
+          return (feature.rangeLon[0] < lon[1] && feature.rangeLon[1]>lon[0] && (feature.rangeLat[0]<lat[1] && feature.rangeLat[1]>lat[0]))
+        })
+      
+      context.beginPath();
+      path(actuelPath);
+        context.fillStyle = 'lightblue';
+        context.fill();
+        context.strokeStyle = 'black';
+        context.lineWidth = 1 / transform.k; // Set stroke width
+
+        context.stroke();
+
+        context.restore();
+  }
+  
+  function debouncedAction() {
+    if (timeoutID) {
+        clearTimeout(timeoutID);
+    }
+    timeoutID = setTimeout(delayedAction, 400);
+    }
+        debouncedAction()
+
+    
+    }
+
+
+
+
+    // Load GeoJSON data
+    d3.json('custom-sm.geo.json').then(function(geoData) {
+
+      geoData.features.forEach(feature => {
+        delete feature.properties
+        let minLon = Infinity;
+        let maxLon = -Infinity;
+        let minLat = Infinity;
+        let maxLat = -Infinity;
+        if(feature.geometry.type=="Polygon") {
+        feature.geometry.coordinates.forEach(coordinate => {
+
+
+        coordinate.forEach(coord => {
+          _coord=projection(coord)
+          if (_coord[0] < minLon) {
+            minLon = _coord[0];
+            }
+          if (_coord[1] < minLat) {
+            minLat = _coord[1];
+            }
+
+            if (_coord[0]> maxLon) {
+                maxLon = _coord[0];
+            }
+            if (_coord[1]> maxLat) {
+                maxLat = _coord[1];
+            }
+        })
+
+
+     
+      });
+    }
+    else{
+      feature.geometry.coordinates.forEach(coordinate => {
+
+        
+        coordinate.forEach(coord => {
+          coord.forEach(coor => {
+            _coor=projection(coor)
+          if (_coor[0] < minLon) {
+            minLon = _coor[0];
+            }
+          if (_coor[1] < minLat) {
+            minLat = _coor[1];
+            }
+          if (_coor[0]> maxLon) {
+              maxLon = _coor[0];
+          }
+          if (_coor[1]> maxLat) {
+              maxLat = _coor[1];
+          }
+        })
+        });
+      })
+    }
+      feature.rangeLon=[minLat, maxLat];
+      feature.rangeLat=[minLon, maxLon];
+    });
+
+      // Store the GeoJSON data
+      window.geoData = geoData;
+      // Draw initial map
+      context.beginPath();
+      path(geoData);
+      context.fillStyle = 'lightblue';
+      context.fill();
+      context.strokeStyle = 'black';
+      context.lineWidth = 1; // Set stroke width
+      context.stroke();
+    });
+    d3.json('custom-md.geo.json').then(function(geoData) {
+      // Store the GeoJSON data
+      geoData.features.forEach(feature => {
+        delete feature.properties
+        let minLon = Infinity;
+        let maxLon = -Infinity;
+        let minLat = Infinity;
+        let maxLat = -Infinity;
+        if(feature.geometry.type=="Polygon") {
+        feature.geometry.coordinates.forEach(coordinate => {
+
+
+        coordinate.forEach(coord => {
+          _coord=projection(coord)
+          if (_coord[0] < minLon) {
+            minLon = _coord[0];
+            }
+          if (_coord[1] < minLat) {
+            minLat = _coord[1];
+            }
+
+            if (_coord[0]> maxLon) {
+                maxLon = _coord[0];
+            }
+            if (_coord[1]> maxLat) {
+                maxLat = _coord[1];
+            }
+        })
+
+
+     
+      });
+    }
+    else{
+      feature.geometry.coordinates.forEach(coordinate => {
+
+        
+        coordinate.forEach(coord => {
+          coord.forEach(coor => {
+            _coor=projection(coor)
+          if (_coor[0] < minLon) {
+            minLon = _coor[0];
+            }
+          if (_coor[1] < minLat) {
+            minLat = _coor[1];
+            }
+          if (_coor[0]> maxLon) {
+              maxLon = _coor[0];
+          }
+          if (_coor[1]> maxLat) {
+              maxLat = _coor[1];
+          }
+        })
+        });
+      })
+    }
+      feature.rangeLon=[minLat, maxLat];
+      feature.rangeLat=[minLon, maxLon];
+    });
+
+      window.geoDataMedium = geoData;
+
+    });
+    d3.json('custom-xl.geo.json').then(function(geoData) {
+      geoData.features.forEach(feature => {
+        delete feature.properties
+        let minLon = Infinity;
+        let maxLon = -Infinity;
+        let minLat = Infinity;
+        let maxLat = -Infinity;
+        if(feature.geometry.type=="Polygon") {
+        feature.geometry.coordinates.forEach(coordinate => {
+
+
+        coordinate.forEach(coord => {
+          _coord=projection(coord)
+          if (_coord[0] < minLon) {
+            minLon = _coord[0];
+            }
+          if (_coord[1] < minLat) {
+            minLat = _coord[1];
+            }
+
+            if (_coord[0]> maxLon) {
+                maxLon = _coord[0];
+            }
+            if (_coord[1]> maxLat) {
+                maxLat = _coord[1];
+            }
+        })
+
+
+     
+      });
+    }
+    else{
+      feature.geometry.coordinates.forEach(coordinate => {
+
+        
+        coordinate.forEach(coord => {
+          coord.forEach(coor => {
+            _coor=projection(coor)
+          if (_coor[0] < minLon) {
+            minLon = _coor[0];
+            }
+          if (_coor[1] < minLat) {
+            minLat = _coor[1];
+            }
+          if (_coor[0]> maxLon) {
+              maxLon = _coor[0];
+          }
+          if (_coor[1]> maxLat) {
+              maxLat = _coor[1];
+          }
+        })
+        });
+      })
+    }
+      feature.rangeLon=[minLat, maxLat];
+      feature.rangeLat=[minLon, maxLon];
+    });
+
+
+      // Store the GeoJSON data
+      window.geoDataLarge = geoData;
+    });
+
+    function printBoundingBox(transform) {
+      // Get the current canvas dimensions
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
+
+      // Get the transformed coordinates of the four corners of the canvas
+      const corners = [
+      [canvasWidth, canvasHeight],
+        [0, 0],
+
+
+      ].map(point => {
+        return [
+          (point[0] - transform.x) / transform.k,
+          (point[1] - transform.y) / transform.k
+        ];
+      });
+
+      // Convert transformed canvas coordinates to lat and lon using inverse projection
+
+      let lat=[Math.min(corners[0][0],corners[1][0]),Math.max(corners[0][0],corners[1][0])]
+      let lon=[Math.min(corners[0][1],corners[1][1]),Math.max(corners[0][1],corners[1][1])]
+
+
+      return {lat,lon};
+
+    }
+   
+    function getByteSize(variable) {
+    const text = JSON.stringify(variable);
+    const encoder = new TextEncoder();
+    return encoder.encode(text).byteLength/1024;
+  }
+
+  </script>
+</body>
+</html>
